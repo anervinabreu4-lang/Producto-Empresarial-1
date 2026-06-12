@@ -1,0 +1,662 @@
+
+Producto 1
+
+
+===========================
+
+R1-CORE
+
+===========================
+
+enable
+configure terminal
+hostname R1-Core
+
+ipv6 unicast-routing
+
+interface Ethernet0/0
+ description TRUNK TO SWM1
+ no ip address
+ no shutdown
+
+interface Ethernet0/0.10
+ description VLAN10-ESTUDIANTES
+ encapsulation dot1Q 10
+ ip address 172.24.0.1 255.255.248.0
+ ipv6 address 2001:25:24:0::1/64
+ ip access-group VLAN10-ESTUDIANTES in
+ standby 10 ip 172.24.0.254
+ standby 10 priority 110
+ standby 10 preempt
+
+interface Ethernet0/0.20
+ description VLAN20-DOCENTES
+ encapsulation dot1Q 20
+ ip address 172.24.8.1 255.255.255.0
+ ipv6 address 2001:25:24:1::1/64
+ ip access-group VLAN20-DOCENTES in
+ standby 20 ip 172.24.8.254
+ standby 20 priority 110
+ standby 20 preempt
+
+interface Ethernet0/0.30
+ description VLAN30-GESTION
+ encapsulation dot1Q 30
+ ip address 172.24.10.65 255.255.255.192
+ ipv6 address 2001:25:24:5::1/64
+ ip access-group VLAN30-GESTION in
+ standby 30 ip 172.24.10.126
+ standby 30 priority 110
+ standby 30 preempt
+
+interface Ethernet0/0.40
+ description VLAN40-VOZ
+ encapsulation dot1Q 40
+ ip address 172.24.10.129 255.255.255.224
+ ipv6 address 2001:25:24:6::1/64
+ standby 40 ip 172.24.10.158
+ standby 40 priority 110
+ standby 40 preempt
+
+interface Ethernet0/0.50
+ description VLAN50-BLACKHULL
+ encapsulation dot1Q 50
+ ip address 172.24.10.161 255.255.255.240
+ ipv6 address 2001:25:24:7::1/64
+
+interface Ethernet0/2
+ description ISP
+ ip address 200.0.0.2 255.255.255.252
+ no shutdown
+
+interface Serial1/0
+ description LINK TO R2
+ ip address 172.24.10.193 255.255.255.252
+ ipv6 address 2001:25:24:9::1/64
+ no shutdown
+
+router ospf 1
+ router-id 1.1.1.1
+ network 172.24.0.0 0.1.255.255 area 0
+ default-information originate
+ exit
+
+ip route 0.0.0.0 0.0.0.0 200.0.0.1
+
+ip access-list extended VLAN10-ESTUDIANTES
+ permit ip 172.24.0.0 0.0.7.255 host 200.0.0.1
+ deny ip 172.24.0.0 0.0.7.255 172.24.0.0 0.1.255.255
+ permit ip any any
+ exit
+
+ip access-list extended VLAN20-DOCENTES
+ permit ip 172.24.8.0 0.0.0.255 any
+ exit
+
+ip access-list extended VLAN30-GESTION
+ permit ip 172.24.10.64 0.0.0.63 172.24.8.0 0.0.0.255
+ permit ip 172.24.10.64 0.0.0.63 172.24.10.64 0.0.0.63
+ deny ip 172.24.10.64 0.0.0.63 any
+ permit ip any any
+ exit
+
+end
+write memory
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+======================================
+
+SWM1
+
+========================================
+
+
+
+
+hostname SWM1
+
+
+ip routing
+ipv6 unicast-routing
+
+vtp domain ITLA
+vtp mode server
+
+vlan 10
+ name Estudiantes
+vlan 20
+ name Docentes
+vlan 30
+ name Gestion
+vlan 40
+ name Voz
+vlan 50
+ name Blackhull
+
+spanning-tree mode rapid-pvst
+spanning-tree vlan 10,20,30,40,50 priority 24576
+
+interface Ethernet0/0
+ description ROUTED LINK TO R1-CORE
+ no switchport
+ ip address 172.24.10.198 255.255.255.252
+ ipv6 address 2001:25:24:A::2/64
+ no shutdown
+
+interface Port-channel1
+ description TRUNK ETHERCHANNEL TO SWM2 (LOCAL INTERCONNECT)
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport nonegotiate
+
+interface range Ethernet0/1 - 3
+ description PHYSICAL LINKS TO SWM2
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport nonegotiate
+ channel-group 1 mode active
+
+interface range Ethernet1/0 - 2
+ description TRUNKS TO ACCESS SWITCHES
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport nonegotiate
+
+
+interface Vlan10
+ description GATEWAY ESTUDIANTES
+ ip address 172.24.0.2 255.255.248.0
+ ipv6 address 2001:25:24:0::2/64
+ standby 10 ip 172.24.0.1
+ standby 10 priority 110
+ standby 10 preempt
+
+interface Vlan20
+ description GATEWAY DOCENTES
+ ip address 172.24.8.2 255.255.255.0
+ ipv6 address 2001:25:24:1::2/64
+ standby 20 ip 172.24.8.1
+ standby 20 priority 110
+ standby 20 preempt
+
+interface Vlan30
+ description GATEWAY GESTION
+ ip address 172.24.10.66 255.255.255.192
+ ipv6 address 2001:25:24:5::2/64
+ standby 30 ip 172.24.10.65
+ standby 30 priority 110
+ standby 30 preempt
+
+interface Vlan40
+ description GATEWAY VOZ (STANDBY LOCAL)
+ ip address 172.24.10.130 255.255.255.224
+ ipv6 address 2001:25:24:6::2/64
+ standby 40 ip 172.24.10.129
+ standby 40 priority 90
+ standby 40 preempt
+
+interface Vlan50
+ description BLACKHULL
+ ip address 172.24.10.162 255.255.255.240
+ ipv6 address 2001:25:24:7::2/64
+
+
+router ospf 1
+ router-id 3.3.3.3
+ network 172.24.0.0 0.1.255.255 area 0
+
+end
+write memory
+
+
+configure terminal
+interface Ethernet0/0
+ no ip address
+ no ipv6 address
+ switchport
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport nonegotiate
+end
+write memory
+
+
+-------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+========================================
+SWM2
+=======================================
+
+enable
+configure terminal
+hostname SWM2
+
+ip routing
+ipv6 unicast-routing
+
+vtp domain ITLA
+vtp mode client
+
+spanning-tree mode rapid-pvst
+spanning-tree vlan 10,20,30,40,50 priority 28672
+
+interface Ethernet0/0
+ description TRUNK TO R1-CORE
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport nonegotiate
+
+interface Port-channel1
+ description TRUNK ETHERCHANNEL TO SWM1 (LOCAL INTERCONNECT)
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport nonegotiate
+
+interface range Ethernet0/1 - 3
+ description PHYSICAL LINKS TO SWM1
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport nonegotiate
+ channel-group 1 mode active
+
+interface range Ethernet1/0 - 2
+ description TRUNKS TO ACCESS SWITCHES
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport nonegotiate
+
+interface Vlan10
+ description GATEWAY ESTUDIANTES
+ ip address 172.24.0.3 255.255.248.0
+ ipv6 address 2001:25:24:0::3/64
+ standby 10 ip 172.24.0.254
+ standby 10 priority 90
+ standby 10 preempt
+
+interface Vlan20
+ description GATEWAY DOCENTES
+ ip address 172.24.8.3 255.255.255.0
+ ipv6 address 2001:25:24:1::3/64
+ standby 20 ip 172.24.8.254
+ standby 20 priority 90
+ standby 20 preempt
+
+interface Vlan30
+ description GATEWAY GESTION
+ ip address 172.24.10.67 255.255.255.192
+ ipv6 address 2001:25:24:5::3/64
+ standby 30 ip 172.24.10.126
+ standby 30 priority 90
+ standby 30 preempt
+
+interface Vlan40
+ description GATEWAY VOZ
+ ip address 172.24.10.131 255.255.255.224
+ ipv6 address 2001:25:24:6::3/64
+ standby 40 ip 172.24.10.158
+ standby 40 priority 90
+ standby 40 preempt
+
+interface Vlan50
+ description BLACKHULL
+ ip address 172.24.10.163 255.255.255.240
+ ipv6 address 2001:25:24:7::3/64
+
+end
+write memory
+
+
+----------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+========================================
+R2
+========================================
+enable
+configure terminal
+hostname R2
+
+ipv6 unicast-routing
+
+interface Ethernet0/0
+ no ip address
+ no shutdown
+
+interface Ethernet0/0.60
+ description VLAN60-FINANZAS
+ encapsulation dot1Q 60
+ ip address 172.24.9.1 255.255.255.128
+ ipv6 address 2001:25:24:3::1/64
+ ip access-group VLAN60-FINANZAS in
+ standby 60 ip 172.24.9.126
+ standby 60 priority 110
+ standby 60 preempt
+
+interface Ethernet0/0.70
+ description VLAN70-ACADEMICOS
+ encapsulation dot1Q 70
+ ip address 172.24.9.129 255.255.255.128
+ ipv6 address 2001:25:24:2::1/64
+ standby 70 ip 172.24.9.254
+ standby 70 priority 110
+ standby 70 preempt
+
+interface Ethernet0/0.80
+ description VLAN80-DATACENTER
+ encapsulation dot1Q 80
+ ip address 172.24.10.1 255.255.255.192
+ ipv6 address 2001:25:24:4::1/64
+ standby 80 ip 172.24.10.62
+ standby 80 priority 110
+ standby 80 preempt
+
+interface Ethernet0/0.90
+ description VLAN90-BLACKHULL-R2
+ encapsulation dot1Q 90
+ ip address 172.24.10.177 255.255.255.240
+ ipv6 address 2001:25:24:8::1/64
+ standby 90 ip 172.24.10.190
+ standby 90 priority 110
+ standby 90 preempt
+
+interface Serial1/0
+ description LINK TO R1-CORE
+ ip address 172.24.10.194 255.255.255.252
+ ipv6 address 2001:25:24:9::2/64
+ no shutdown
+
+router ospf 1
+ router-id 2.2.2.2
+ network 172.24.0.0 0.1.255.255 area 0
+ exit
+
+ip access-list extended VLAN60-FINANZAS
+ deny ip 172.24.9.0 0.0.0.127 172.24.0.0 0.1.255.255
+ permit ip 172.24.9.0 0.0.0.127 any
+ exit
+
+end
+write memory
+
+
+
+------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+=====================================================
+SWA-C1
+=====================================================
+
+enable
+configure terminal
+hostname SWA-C1
+
+vtp domain ITLA
+vtp mode client
+spanning-tree mode rapid-pvst
+
+interface Ethernet0/0
+ description TRUNK TO SWM1
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport nonegotiate
+
+interface Ethernet0/1
+ description TRUNK TO SWM2
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport nonegotiate
+
+interface Ethernet1/0
+ description ACCESS TO DOC1
+ switchport mode access
+ switchport access vlan 20
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+end
+write memory
+
+
+------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+===================================
+SWA-C2
+===================================
+
+
+enable
+configure terminal
+hostname SWA-C2
+
+vtp domain ITLA
+vtp mode client
+spanning-tree mode rapid-pvst
+
+interface Ethernet0/0
+ description TRUNK TO SWM1
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport nonegotiate
+
+interface Ethernet0/1
+ description TRUNK TO SWM2
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport nonegotiate
+
+interface Ethernet2/0
+ description ACCESS TO EST1
+ switchport mode access
+ switchport access vlan 10
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+end
+write memory
+
+
+-----------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+=========================================================================
+
+SWA-C3
+
+=========================================================================
+
+enable
+configure terminal
+hostname SWA-C3
+
+vtp domain ITLA
+vtp mode client
+spanning-tree mode rapid-pvst
+
+interface Ethernet0/0
+ description TRUNK TO SWM1
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport nonegotiate
+
+interface Ethernet0/1
+ description TRUNK TO SWM2
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport nonegotiate
+
+interface Ethernet3/0
+ description ACCESS TO GES1
+ switchport mode access
+ switchport access vlan 30
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+end
+write memory
+
+
+---------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+=================================================
+
+SWA13
+
+=================================================
+
+
+enable
+configure terminal
+hostname SWA13
+
+vtp domain ITLA
+vtp mode transparent
+
+vlan 60
+ name Finanzas
+vlan 70
+ name Academicos
+vlan 80
+ name Datacenter
+vlan 90
+ name Blackhull-R2
+exit
+
+spanning-tree mode rapid-pvst
+
+interface Ethernet0/0
+ description TRUNK TO R2
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport nonegotiate
+
+interface Ethernet1/0
+ description ACCESS TO ACA1
+ switchport mode access
+ switchport access vlan 70
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+
+interface Ethernet2/0
+ description ACCESS TO FIN1
+ switchport mode access
+ switchport access vlan 60
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+end
+write memory
+
+--------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+================================
+PC EST1 (Estudiantes - VLAN 10):
+================================
+
+ip 172.24.0.100/21 172.24.0.254
+save
+
+
+=============================
+PC DOC1 (Docentes - VLAN 20):
+=============================
+
+
+ip 172.24.8.100/24 172.24.8.254
+save
+
+
+===============================
+PC GES1 (Gestión - VLAN 30):
+===============================
+
+
+ip 172.24.10.70/27 172.24.10.126
+save
+
+
+==============================
+2. Lado Derecho (Sucursal - R2)
+PC FIN1 (Finanzas - VLAN 60):
+===============================
+
+
+ip 172.24.9.10/25 172.24.9.126
+save
+
+
+=================================
+PC ACA1 (Académicos - VLAN 70):
+=================================
+
+
+
+ip 172.24.9.140/25 172.24.9.254
+save
